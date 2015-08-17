@@ -1,0 +1,80 @@
+---
+title: "Analysis of the Impact of the Transmission Type on Miles Per Gallon"
+author: "joergandi"
+date: "17 August 2015"
+output: html_document
+---
+
+## Overview
+The following analysis of the impact of the transmission type on miles per gallon is based on the R built-in dataset mtcars, extracted from the 1974 Motor Trend US magazine. The objective is to determine if an automatic or manual transmission is better for MPG and to quantify that difference.
+
+## Executive Summary
+Although the data indicates that using a manual instead of an automatic transmission would increase MPG by approximately 7.2, this statement only holds if all other parameters which influence MPG are ignored. In fact, fuel consumption can be explained to a large extent by weight and horsepower alone. If one would like to buy a 1973/74 car model with an expected decent consumption, one should rather focus on car weight and horsepower than on the transmission type.
+
+## Exploratory data analysis
+Transmission type seems to have an impact on MPG if no other variables are considered, **cf. appendix figure 1**; however, other variables seem to impact MPG as well, **cf. appendix figure 2**.
+
+## Quantification of transmission type impact on mpg
+The plots suggests that using a manual transmission increases MPG significantly, which is confirmed by the small p-value of a t-test, allowing to reject the hypothesis of no impact.
+```{r confidence, echo=TRUE}
+data(mtcars)
+t.test(mpg~am,data=mtcars,conf.level=0.95)$p.value
+```
+We fit a linear model to the factor variable of transmission type and mpg.
+```{r linearfit, echo=TRUE}
+fit<-lm(mpg~factor(am),data=mtcars)
+summary(fit)$coefficients
+```
+The first coefficient in the second row indicates that switching to manual transmission (am==1) will result in an average increase in MPG by `r summary(fit)$coefficients[2]` while assuming all other variables fixed.
+
+## Which transmission is better for MPG?
+```{r modelselection, echo=TRUE}
+fit2<-lm(mpg~wt*hp ,data=mtcars)
+fit3<-update(fit2,mpg~wt*hp +factor(am))
+anova(fit2,fit3)
+```
+The exploratory data analysis already showed a significant impact of weight and horsepower on MPG. A model selection based on an analysis of the variance of different models (**cf. appendix figure 3**) suggests that a linear model comprising the interaction of weight and horsepower explains `r summary(fit2)$adj.r.squared*100`% of variance in MPG. The fitting of this model is reasonable when looking at the residuals and their variance which do not exhibit a systematic trend, **cf. appendix figure 4**.
+Adding the dependency on the transmission type factor variable to this model does not increase the explained variance (`r summary(fit3)$adj.r.squared*100`% ) and the high p-value of a comparative anova analysis suggests that this more complex model is not a better choice (the null hypothesis of "adding the transmission variable has no impact" cannot be rejected). **This suggests that transmission type should not be used as a main indicator to draw conclusions on MPG.**
+
+## Conclusion
+Without considering the influence of other variables, using a manual instead of an automatic transmission increases mpg on average by `r summary(fit)$coefficients[2]`. However, the variance in mpg in this dataset can be explained to a large extent by weight and horsepower and the transmission type seems to have a small impact when considering the impact of other variables. 
+
+## Appendix
+```{r exploratory, echo=TRUE,cache=TRUE, fig.height=3, fig.width=4, tidy=FALSE}
+boxplot(mpg~factor(am),data=mtcars, #xlab="transmission type",
+        names = c("Automatic", "Manual"),
+       ylab="miles per gallon", main="Figure 1: transmission vs MPG")
+```
+
+```{r exploratory2, echo=TRUE,cache=TRUE, fig.height=8, fig.width=8, tidy=FALSE}
+require(GGally)
+require(ggplot2)
+g=ggpairs(mtcars,lower=list(continuous="smooth"),params=c(method="loess"),
+          title="Figure 2: Exploratory analysis of variable interactions")
+g
+```
+
+```{r modelselection2, echo=TRUE,tidy=FALSE}
+#Figure 3: Comparing different linear models using analysis of variance 
+#  with an increasing number of variables
+m0<-lm(mpg~wt+hp,data=mtcars)
+m1<-update(m0,mpg~wt+hp+factor(cyl))
+m2<-update(m0,mpg~wt+hp+factor(am))
+m3<-update(m0,mpg~wt+hp+factor(cyl)+factor(am))
+m4<-lm(mpg~wt*hp,data=mtcars)
+anova(m0,m1,m2,m3)
+summary(m3)
+summary(m4)
+```
+
+<!-- NOT commented out for size reasons 
+In model m3 (no interaction terms), changing to manual transmission would increase average mpg by `r summary(m3)$coefficients[6]`, but the high p-value of this variable indicates that the null hypothesis (the transmission variable has no impact) cannot be rejected.
+--> 
+
+
+```{r modelselection3, echo=TRUE, fig.height=6, fig.width=6, tidy=FALSE}
+par(mfrow=c(2,2))
+plot(m4)
+
+title("Figure 4: Analysis of residuals for selected model", outer=TRUE)
+```
